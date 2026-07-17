@@ -1,45 +1,43 @@
-/* gpio.c — bare-metal GPIO driver for STM32F405 (register-level, no HAL)
- *
- * Each pin's settings live as a FIELD inside a shared register. MODER, for
- * example, uses 2 bits per pin, so pin N's mode is at bit position (N*2).  */
-#include "gpio.h"
+# Makefile — build the bare-metal STM32 driver project and run it in QEMU
+# Targets:
+#   make        -> compile + link -> build/firmware.elf
+#   make run    -> launch QEMU with the firmware, serial on the terminal
+#   make clean  -> remove build artifacts
 
-void gpio_enable_port(GPIO_TypeDef *port)
-{
-    /* GPIO ports sit 0x400 apart on AHB1, and RCC_AHB1ENR's enable bits follow
-     * the same order (bit 0 = GPIOA, bit 1 = GPIOB, ...), so the port's byte
-     * offset from AHB1PERIPH_BASE directly gives its enable-bit position. */
-    uint32_t idx = ((uint32_t)port - AHB1PERIPH_BASE) / 0x400UL;
-    RCC->AHB1ENR |= (1U << idx);
-}
 
-void gpio_set_mode(GPIO_TypeDef *port, uint8_t pin, gpio_mode_t mode)
-{
-    /* MODER: 2 bits per pin. Clear the pin's 2-bit field, then set new mode. */
-    port->MODER &= ~(0x3U << (pin * 2));
-    port->MODER |=  ((uint32_t)mode << (pin * 2));
-}
+# --- Toolchain ---
+CC      = arm-none-eabi-gcc
+OBJCOPY = arm-none-eabi-objcopy
 
-void gpio_set_alternate(GPIO_TypeDef *port, uint8_t pin, uint8_t af)
-{
-    /* AFR is two 32-bit registers, 4 bits per pin. Pins 0-7 in AFR[0],
-     * pins 8-15 in AFR[1]. */
-    uint8_t idx   = pin / 8;          /* which AFR register */
-    uint8_t shift = (pin % 8) * 4;    /* bit offset within it */
-    port->AFR[idx] &= ~(0xFU << shift);
-    port->AFR[idx] |=  ((uint32_t)af << shift);
-}
+# Target CPU flags (Cortex-M4, no hardware FPU)
+CPUFLAGS = -mcpu=cortex-m4 -mthumb
 
-void gpio_write(GPIO_TypeDef *port, uint8_t pin, uint8_t value)
-{
-    /* BSRR is the atomic set/reset register: writing a 1 to the low 16 bits
-     * SETS a pin, writing a 1 to the high 16 bits RESETS it. Using BSRR avoids
-     * a read-modify-write race on ODR if an interrupt also touches the port. */
-    if (value) port->BSRR = (1U << pin);          /* set   */
-    else       port->BSRR = (1U << (pin + 16));   /* reset */
-}
+# --- Compiler flags ---
+# Warnings on, debug symbols, no optimization, no OS/libc assumptions,don't link standard libs
+CFLAGS  = $(CPUFLAGS) -Wall -Wextra -g -O0 -ffreestanding -Iinc
+LDFLAGS = $(CPUFLAGS) -nostdlib -T linker.ld -Wl,-Map=build/firmware.map
 
-uint8_t gpio_read(GPIO_TypeDef *port, uint8_t pin)
-{
-    return (port->IDR >> pin) & 0x1U;
-}
+# --- Sources ---
+SRCS = src/startup.c src/main.c src/gpio.c src/uart.c src/ringbuffer.c
+OBJS = $(SRCS:src/%.c=build/%.o)
+
+# --- Default target ---
+all: build/firmware.elf
+
+build/%.o: src/%.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/firmware.elf: $(OBJS)
+	$(CC) $(LDFLAGS) $(OBJS) -o $@
+	@echo "Built build/firmware.elf"
+
+# --- Run in QEMU (netduinoplus2 = an STM32F405 board QEMU supports) ---
+# -nographic routes the board's serial port to the terminal.
+run: build/firmware.elf
+	qemu-system-arm -M netduinoplus2 -nographic -kernel build/firmware.elf
+
+clean:
+	rm -rf build
+
+.PHONY: all run clean
