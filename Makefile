@@ -18,7 +18,7 @@ CFLAGS  = $(CPUFLAGS) -Wall -Wextra -g -O0 -ffreestanding -Iinc
 LDFLAGS = $(CPUFLAGS) -nostdlib -T linker.ld -Wl,-Map=build/firmware.map
 
 # --- Sources ---
-SRCS = src/startup.c src/main.c src/gpio.c src/uart.c src/ringbuffer.c
+SRCS = src/startup.c src/main.c src/gpio.c src/uart.c src/ringbuffer.c src/spi.c src/i2c.c
 OBJS = $(SRCS:src/%.c=build/%.o)
 
 # --- Default target ---

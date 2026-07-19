@@ -19,6 +19,7 @@
 
 #define RCC_BASE         (AHB1PERIPH_BASE + 0x3800UL)
 #define GPIOA_BASE       (AHB1PERIPH_BASE + 0x0000UL)
+#define GPIOB_BASE       (AHB1PERIPH_BASE + 0x0400UL)
 #define GPIOD_BASE       (AHB1PERIPH_BASE + 0x0C00UL)
 #define USART2_BASE      (APB1PERIPH_BASE + 0x4400UL)
 #define USART1_BASE      (PERIPH_BASE + 0x00011000UL)  /* USART1 on APB2 */
@@ -68,6 +69,7 @@ typedef struct {
     volatile uint32_t AFR[2];  /* 0x20-0x24 alternate function low/high */
 } GPIO_TypeDef;
 #define GPIOA ((GPIO_TypeDef *) GPIOA_BASE)
+#define GPIOB ((GPIO_TypeDef *) GPIOB_BASE)
 #define GPIOD ((GPIO_TypeDef *) GPIOD_BASE)
 
 /* ---- USART: serial port ---- */
